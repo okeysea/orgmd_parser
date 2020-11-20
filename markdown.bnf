@@ -1,0 +1,23 @@
+<Document>  ::= <Blocks>*
+<Blocks>    ::=   <Headers> 
+                | <Blockquotes> 
+                | <Lists> 
+                | <CodeBlocks> 
+                | <HorizontalRules> 
+                | <Paragraph>
+<Headers>   ::=   <Space>{0..3} '#'{1..6} <Space>{1..} <Char>* ['#'*]
+                | <Space>{0..3} ( ( <Char> | <Space> ) <SoftBreak> )* ('='|'-')*
+<Paragraph> ::=  <Text>
+
+<NCChar>    ::= Printable chars in Unicode
+<NBRChar>   ::= {<Tab>, <Space>, <NCChar>}
+<Break>     ::= {\n, \r, \n\r}
+<SoftBreak> ::= <Break>
+<HardBreak> ::= <Break>{2..}
+<Space>     ::= #x20
+<Tab>       ::= #x09
+<Char>      ::= <SoftBreak> | <NBRChar>
+<String>    ::= <Char>*
+<Text>      ::= <Char>*
+
+脚注: タブ文字の扱いはスペース4つ分とする

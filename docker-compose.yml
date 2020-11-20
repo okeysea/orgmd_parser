@@ -1,0 +1,18 @@
+version: '3.7'
+
+x-var: &LOCAL_UID 1000
+x-var: &LOCAL_GID 1000
+
+services:
+  app:
+    environment:
+      - LOCAL_UID=1000
+      - LOCAL_GID=1000
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      args:
+        LOCAL_UID: *LOCAL_UID
+        LOCAL_GID: *LOCAL_GID
+    volumes:
+      - ./:/app
