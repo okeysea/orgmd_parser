@@ -2,30 +2,36 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::cell::RefMut;
 
-type Link<T> = Rc<RefCell<ASTNode<T>>>;
+type Link = Rc<RefCell<ASTNode>>;
 
-#[derive(Debug)]
-pub struct ASTNode<T> {
-    data: T,
-    children: Vec<Link<T>>,
+#[derive(Debug, PartialEq)]
+pub struct ASTNode {
+    data: ASTElm,
+    children: Vec<Link>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, PartialEq)]
 pub struct ASTElm {
-    elm_type: ASTType,
-    elm_meta: ASTMetaData,
-    value: String,
+    pub elm_type: ASTType,
+    pub elm_meta: ASTMetaData,
+    pub value: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ASTType {
     Document,
     Paragraph,
     Headers,
     Text,
+    Emphasis,
+    SoftBreak,
 }
 
-#[derive(Debug)]
+impl Default for ASTType {
+    fn default() -> Self { ASTType::Document }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum ASTMetaData {
     Nil,
     H1,
@@ -36,26 +42,37 @@ pub enum ASTMetaData {
     H6,
 }
 
-impl<T> ASTNode<T> {
-    pub fn new(v: T) -> Self{
+impl Default for ASTMetaData {
+    fn default() -> Self { ASTMetaData::Nil }
+}
+
+
+impl ASTNode {
+    pub fn new(v: ASTElm) -> Self{
         ASTNode {
             data: v,
             children: vec![],
         }
     }
 
-    pub fn append(&mut self, v: T){
+    pub fn append(&mut self, v: ASTElm){
         let node = ASTNode::new(v);
         let rc_node = Rc::new(RefCell::new(node));
         self.children.push( Rc::clone( &rc_node ) );
     }
 
-    pub fn append_node(&mut self, node: ASTNode<T>){
+    pub fn append_node(&mut self, node: ASTNode){
         let rc_node = Rc::new(RefCell::new(node));
         self.children.push( Rc::clone( &rc_node ) );
     }
+    
+    pub fn append_node_from_vec(&mut self, nodes: Vec<ASTNode>){
+        for node in nodes {
+            self.append_node(node);
+        }
+    }
 
-    pub fn type(&self) -> &ASTType {
+    pub fn node_type(&self) -> &ASTType {
         &self.data.elm_type
     }
 
@@ -66,7 +83,86 @@ impl<T> ASTNode<T> {
     pub fn value(&self) -> &String {
         &self.data.value
     }
+
+    pub fn node_type_mut(&mut self) -> &mut ASTType {
+        &mut self.data.elm_type
+    }
+
+    pub fn meta_mut(&mut self) -> &mut ASTMetaData {
+        &mut self.data.elm_meta
+    }
+
+    pub fn value_mut(&mut self) -> &mut String {
+        &mut self.data.value
+    }
+
+    pub fn set_node_type(&mut self, v: ASTType){
+        *self.node_type_mut() = v;
+    }
+
+    pub fn set_meta(&mut self, v: ASTMetaData){
+        *self.meta_mut() = v;
+    }
+
+    pub fn set_value(&mut self, v: String) {
+        *self.value_mut() = v;
+    }
+
+    pub fn render_debug_format(&self) -> String {
+        self._render_debug_format(self)
+    }
+
+    fn _render_debug_format(&self, node: &ASTNode) -> String {
+        let mut result : String = "".to_string();
+        match node.node_type() {
+            ASTType::Document => {
+                result = result + "<document>";
+                for child in &node.children {
+                    result = result + &self._render_debug_format( &child.borrow() );
+                }
+                result = result + "</document>";
+            },
+            ASTType::Paragraph => {
+                result = result + "<paragraph>";
+                for child in &node.children {
+                    result = result + &self._render_debug_format( &child.borrow() );
+                }
+                result = result + "</paragraph>";
+            },
+            ASTType::Headers => {
+                result = result + "<header level='1'>";
+                for child in &node.children {
+                    result = result + &self._render_debug_format( &child.borrow() );
+                }
+                result = result + "</header>";
+            },
+            ASTType::Text => {
+                result = node.value().to_string();
+            },
+            ASTType::Emphasis => {
+                result = result + "<emphasis>";
+                for child in &node.children {
+                    result = result + &self._render_debug_format( &child.borrow() );
+                }
+                result = result + "</emphasis>";
+
+            },
+            ASTType::SoftBreak => {
+                result = node.value().to_string();
+            },
+            _ => {
+                result = result + "<error>Undefined ASTNode Type</error>";
+            },
+        }
+        return result
+    }
 }
+
+/*
+fn render_tag( tagname: &str, value: &str ) -> String {
+    "<"+tagname+">"+value+"</"tagname+">"
+}
+*/
 
 // イテレータの実装
 /*
@@ -83,12 +179,46 @@ impl<T> Iterator for ASTNode<T> {
 mod tests {
     use super::*;
 
-    fn ASTNode_return() -> ASTNode<ASTElm> {
+    fn ASTNode_return() -> ASTNode {
         ASTNode::new( ASTElm {
             elm_type: ASTType::Document,
             elm_meta: ASTMetaData::Nil,
             value: "astnode_return".to_string(),
         })
+    }
+
+    fn ASTNode_markdown_header() -> ASTNode {
+
+        let mut node = ASTNode::new( ASTElm {
+            elm_type: ASTType::Headers,
+            elm_meta: ASTMetaData::H1,
+            value: "".to_string(),
+        });
+
+        node.append( ASTElm{
+            elm_type: ASTType::Text,
+            elm_meta: ASTMetaData::Nil,
+            value: "Headering 1".to_string(),
+        });
+
+        return node
+    }
+
+    fn ASTNode_markdown_paragraph() -> ASTNode {
+
+        let mut node = ASTNode::new( ASTElm {
+            elm_type: ASTType::Paragraph,
+            elm_meta: ASTMetaData::Nil,
+            value: "".to_string(),
+        });
+
+        node.append( ASTElm{
+            elm_type: ASTType::Text,
+            elm_meta: ASTMetaData::Nil,
+            value: "This is Paragraph block.".to_string(),
+        });
+
+        return node
     }
 
     #[test]
@@ -113,6 +243,25 @@ mod tests {
 
         node.append_node( ASTNode_return() );
 
+        println!("ASTNode_basics tests");
         println!("{:?}", node);
+        println!("{:?}", node.node_type());
+    }
+
+    #[test]
+    fn ASTNode_markdown() {
+        let mut node_empty = ASTNode::new(Default::default());
+        let mut node = ASTNode::new( ASTElm{
+            elm_type: ASTType::Document,
+            elm_meta: ASTMetaData::Nil,
+            value: "# Headering 1\nThis is paragraph block.".to_string(),
+        } );
+
+        node.append_node( ASTNode_markdown_header() );
+        node.append_node( ASTNode_markdown_paragraph() );
+
+        println!("ASTNode_markdown tests");
+        println!("{:?}", node);
+        println!("{:?}", node_empty);
     }
 }

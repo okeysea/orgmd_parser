@@ -1,164 +1,18 @@
-
-use orgmd_parser::module::ast::ASTNode;
-// use orgmd_parser::module::md_parser;
-
-use nom::{
-    Err, IResult, InputIter, Slice, AsChar,
-    InputTakeAtPosition, InputLength,
+use orgmd_parser::module::ast::{
+    ASTNode, ASTElm, 
 };
-use nom::error::{
-    ErrorKind, ParseError,
-};
-use nom::character::complete::{
-    char, digit1, multispace0, line_ending,
-    not_line_ending,
-};
-use nom::branch::alt;
-use nom::sequence::delimited;
-use nom::multi::many_m_n;
-use std::ops::RangeFrom;
-
-/*
-fn numeric_in_parantheses(s: &str) -> IResult<&strm &str> {
-    let (s, _) = char('(')(s)?;
-    let (s, _) = multispace0(s)?;
-    let (s, num) = digit1(s)?;
-    let (s, _) = multispace0(s)?;
-    let (s, _) = char(')')(s)?;
-    Ok((s, num))
-}*/
-
-fn printable_char<I, Error: ParseError<I>>(c: char) -> impl Fn(I) -> IResult<I, char, Error>
-where
-    I: Slice<RangeFrom<usize>> + InputIter,
-    <I as InputIter>::Item: AsChar,
-{
-    move |i: I| match (i).iter_elements().next().map(|t| {
-        let b = t.as_char() == c;
-        (&c, b)
-    }) {
-        Some((c, true)) => Ok((i.slice(c.len()..), c.as_char())),
-        _ => Err(Err::Error(Error::from_char(i, c))),
-    }
-}
-
-fn printable_char2<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
-where
-    T: InputTakeAtPosition,
-    <T as InputTakeAtPosition>::Item: AsChar + Clone,
-{
-    input.split_at_position_complete(|item| {
-        let c = item.as_char();
-        !(c == ' ' || c == '\t')
-    })
-}
-
-fn decide_char_printable(input: char) -> Result<char, String>
-{
-    let i = input as u32;
-    let mut r = false;
-    
-    // 制御文字の判定
-    r = 0x00 >= i  && i <= 0x1F;
-    r = r || i == 0x7F; // delete
-
-    // 半角スペースの判定
-    r = r || i == 0x20;
-
-    if r == false {
-        Ok(input)
-    }else{
-        Err("not printable char".to_string())
-    }
-}
-
-fn printable_char3<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
-where
-    T: InputIter + InputLength + Slice<RangeFrom<usize>>,
-    <T as InputIter>::Item: AsChar, <T as InputIter>::Item: std::fmt::Debug,
-{
-    let mut it = input.iter_indices();
-    match it.next() {
-        None => Err(Err::Error(E::from_error_kind(input, ErrorKind::Eof))),
-        Some((_, c)) => match it.next() {
-            None => {
-                match decide_char_printable(c.as_char()) {
-                    Ok(c)  => Ok((input.slice(input.input_len()..), c.as_char())),
-                    Err(_) => Err(Err::Error(E::from_error_kind(input, ErrorKind::Char))),
-                }
-            },
-            Some((idx, _)) => {
-                match decide_char_printable(c.as_char()) {
-                    Ok(c)  => Ok((input.slice(idx..), c.as_char())),
-                    Err(_) => Err(Err::Error(E::from_error_kind(input, ErrorKind::Char))),
-                }
-            },
-        }
-    }
-}
-    
-fn printable_char_test(s: &str) -> IResult<&str, char> {
-    printable_char('a')(s)
-}
-
-fn printable_char_test3(s: &str) -> IResult<&str, char> {
-    printable_char3(s)
-}
-// non-break char
-fn nbr_char(s: &str) -> IResult<&str, &str> {
-    not_line_ending(s)
-}
-
-fn soft_break(s: &str) -> IResult<&str, &str> {
-    line_ending(s)
-}
-
-fn hard_break(s: &str) -> IResult<&str, Vec<&str>> {
-    many_m_n(2, 99, soft_break)(s)
-}
-
-fn parse_char(s: &str) -> IResult<&str, &str> {
-    alt((
-        nbr_char,
-        soft_break,
-    ))(s)
-}
-
-fn numeric_in_parantheses(s: &str) -> IResult<&str, &str> {
-    delimited(
-        char('('),
-        delimited(multispace0, digit1, multispace0),
-        char(')'),
-    )(s)
-}
-
+use orgmd_parser::module::md_parser::md_parse;
 
 fn main() {
-    println!("hello, world!");
-
-    println!("soft_break:");
-    println!("{:?}", soft_break("\n\n\n\n\n"));
-    println!("{:?}", soft_break("\n"));
-
-    println!("hard_break:");
-    println!("{:?}", hard_break("\n\n\n\n\n"));
-    println!("{:?}", hard_break("\n"));
-    println!("{:?}", hard_break("\n\n\n"));
-
-    println!("nbr_char:");
-    println!("{:?}", nbr_char("abc"));
-    println!("{:?}", nbr_char("abc\nabc"));
-    println!("{:?}", nbr_char("\nabc"));
-
-    println!("parse_char:");
-    println!("{:?}", parse_char("parse_char\ntest\n\ncdecde"));
-    println!("{:?}", parse_char("parse_char\ntest\n\n"));
-    
-    println!("printable_char");
-    println!("{:?}", printable_char_test("aaaaaaabc"));
-
-    println!("printable_char3");
-    println!("{:?}", printable_char_test3("aaaaaaabc"));
-    println!("{:?}", printable_char_test3(" ahaaaaabc"));
+    let mut node = ASTNode::new( ASTElm { ..Default::default() } );
+    node = md_parse("\
+# headering
+*toside
+*toside
+emphasis*
+emphasis*\
+", node);
+    println!("{:?}", node);
+    println!("{:?}", node.render_debug_format());
 }
 

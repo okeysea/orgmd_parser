@@ -5,19 +5,31 @@
                 | <CodeBlocks> 
                 | <HorizontalRules> 
                 | <Paragraph>
-<Headers>   ::=   <Space>{0..3} '#'{1..6} <Space>{1..} <Char>* ['#'*]
+
+<Headers>   ::=   <Space>{0..3} '#'{1..6} <Space>{1..} <NBRString> ['#'*] <BreakOrEof>
                 | <Space>{0..3} ( ( <Char> | <Space> ) <SoftBreak> )* ('='|'-')*
-<Paragraph> ::=  <Text>
+
+<Paragraph> ::=   <Inline> ( <HardBreak> | <Separator> | <EOF> )
+
+// 入力を消費しない
+<Separator> ::= <SoftBreak> <Space>{0..3} '#'{1..6} <Space>{1..}
+
+<NBRInline> ::= <NBREmphasis> 
+
+<Inline>    ::= ( <Empasis> | <String> | <SoftBreak> )*
+
+<Emphasis>  ::= '*' <Inline> '*'
 
 <NCChar>    ::= Printable chars in Unicode
+<Space>     ::= #x20
+<Tab>       ::= #x09
 <NBRChar>   ::= {<Tab>, <Space>, <NCChar>}
 <Break>     ::= {\n, \r, \n\r}
 <SoftBreak> ::= <Break>
-<HardBreak> ::= <Break>{2..}
-<Space>     ::= #x20
-<Tab>       ::= #x09
+<HardBreak> ::= <Break>{2..} | <Separator>
+<BreakOrEof>::= <Break> | <EOF>
 <Char>      ::= <SoftBreak> | <NBRChar>
-<String>    ::= <Char>*
-<Text>      ::= <Char>*
+<String>    ::= <Char>{1..}
+<NBRString> ::= <NBRChar>{1..}
 
 脚注: タブ文字の扱いはスペース4つ分とする
