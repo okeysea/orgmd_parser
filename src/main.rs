@@ -1,7 +1,8 @@
-use orgmd_parser::module::ast::{
+pub mod module;
+use module::ast::{
     ASTNode, ASTElm, 
 };
-use orgmd_parser::module::md_parser::md_parse;
+use module::md_parser::md_parse;
 
 fn main() {
     let mut node = ASTNode::new( ASTElm { ..Default::default() } );
