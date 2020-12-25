@@ -112,43 +112,36 @@ impl ASTNode {
         self._render_debug_format(self)
     }
 
+    fn _render_tag(&self, tagname: &str, node: &ASTNode ) -> String {
+        let mut result : String = "<".to_string() + tagname + ">";
+        for child in &node.children {
+            result = result + &self._render_debug_format( &child.borrow() );
+        }
+        result = result + "</" + tagname + ">";
+        return result
+    }
+
     fn _render_debug_format(&self, node: &ASTNode) -> String {
         let mut result : String = "".to_string();
         match node.node_type() {
             ASTType::Document => {
-                result = result + "<document>";
-                for child in &node.children {
-                    result = result + &self._render_debug_format( &child.borrow() );
-                }
-                result = result + "</document>";
+                result += &self._render_tag("document", &node );
             },
             ASTType::Paragraph => {
-                result = result + "<paragraph>";
-                for child in &node.children {
-                    result = result + &self._render_debug_format( &child.borrow() );
-                }
-                result = result + "</paragraph>";
+                result += &self._render_tag("paragraph", &node );
             },
             ASTType::Headers => {
-                result = result + "<header level='1'>";
-                for child in &node.children {
-                    result = result + &self._render_debug_format( &child.borrow() );
-                }
-                result = result + "</header>";
+                result += &self._render_tag("header", &node );
             },
             ASTType::Text => {
-                result = node.value().to_string();
+                result += &("<text>".to_string() + &node.value().to_string() + "</text>");
             },
             ASTType::Emphasis => {
-                result = result + "<emphasis>";
-                for child in &node.children {
-                    result = result + &self._render_debug_format( &child.borrow() );
-                }
-                result = result + "</emphasis>";
-
+                result += &self._render_tag("emphasis", &node );
             },
             ASTType::SoftBreak => {
-                result = node.value().to_string();
+                //result = node.value().to_string();
+                result += "<softbreak />";
             },
             _ => {
                 result = result + "<error>Undefined ASTNode Type</error>";
@@ -158,11 +151,6 @@ impl ASTNode {
     }
 }
 
-/*
-fn render_tag( tagname: &str, value: &str ) -> String {
-    "<"+tagname+">"+value+"</"tagname+">"
-}
-*/
 
 // イテレータの実装
 /*
