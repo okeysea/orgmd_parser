@@ -15,6 +15,7 @@ pub struct ASTElm {
     pub elm_type: ASTType,
     pub elm_meta: ASTMetaData,
     pub value: String,
+    pub raw_value: String,     // パース前のデータ
 }
 
 #[derive(Debug, PartialEq)]
@@ -57,8 +58,7 @@ impl ASTNode {
 
     pub fn append(&mut self, v: ASTElm){
         let node = ASTNode::new(v);
-        let rc_node = Rc::new(RefCell::new(node));
-        self.children.push( Rc::clone( &rc_node ) );
+        self.append_node(node);
     }
 
     pub fn append_node(&mut self, node: ASTNode){
@@ -72,6 +72,10 @@ impl ASTNode {
         }
     }
 
+    //
+    // --- setter, getter ---
+    //
+
     pub fn node_type(&self) -> &ASTType {
         &self.data.elm_type
     }
@@ -82,6 +86,10 @@ impl ASTNode {
 
     pub fn value(&self) -> &String {
         &self.data.value
+    }
+
+    pub fn raw_value(&self) -> &String {
+        &self.data.raw_value
     }
 
     pub fn node_type_mut(&mut self) -> &mut ASTType {
@@ -96,6 +104,10 @@ impl ASTNode {
         &mut self.data.value
     }
 
+    pub fn raw_value_mut(&mut self) -> &mut String {
+        &mut self.data.raw_value
+    }
+
     pub fn set_node_type(&mut self, v: ASTType){
         *self.node_type_mut() = v;
     }
@@ -107,6 +119,14 @@ impl ASTNode {
     pub fn set_value(&mut self, v: String) {
         *self.value_mut() = v;
     }
+
+    pub fn set_raw_value(&mut self, v: String) {
+        *self.raw_value_mut() = v;
+    }
+
+    // 
+    // --- rendering ---
+    //
 
     pub fn render_debug_format(&self) -> String {
         self._render_debug_format(self)

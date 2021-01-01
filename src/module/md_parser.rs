@@ -28,16 +28,6 @@ use nom::multi::{
 };
 use std::ops::RangeFrom;
 
-/*
-fn numeric_in_parantheses(s: &str) -> IResult<&strm &str> {
-    let (s, _) = char('(')(s)?;
-    let (s, _) = multispace0(s)?;
-    let (s, num) = digit1(s)?;
-    let (s, _) = multispace0(s)?;
-    let (s, _) = char(')')(s)?;
-    Ok((s, num))
-}*/
-
 fn decide_char_printable(input: char) -> Result<char, String>
 {
     let i = input as u32;
@@ -132,7 +122,7 @@ fn parse_blank_char(s: &str) -> IResult<&str, char> {
     ))(s)
 }
 
-// アスタリスク・コントロール文字除くUTF-8文字すべてを受けいれる
+// 記号(ASCII)・コントロール文字除くUTF-8文字すべてを受けいれる
 // not-special-char
 // インライン書式のパース用→ *Empasis*
 fn parse_nsp_char(s: &str) -> IResult<&str, String> {
@@ -308,9 +298,6 @@ fn parse_tilde_char(s: &str) -> IResult<&str, char>{
     char('~')(s)
 }
 
-
-
-
 /* ---------- strings ----------*/
 
 // ソフトブレイク
@@ -325,6 +312,7 @@ fn parse_soft_break_node(s: &str) -> IResult<&str, ASTNode> {
                 elm_type: ASTType::SoftBreak,
                 elm_meta: ASTMetaData::Nil,
                 value: "\n".to_string(),
+                raw_value: s.slice(..s.len() - remain.len()).to_string(),   
             });
             Ok((remain, node))
         },
@@ -381,14 +369,12 @@ fn parse_inline(s: &str) -> IResult<&str, ASTNode> {
                     let node = ASTNode::new( ASTElm {
                         elm_type: ASTType::Text,
                         elm_meta: ASTMetaData::Nil,
+                        raw_value: s.slice(..input_s.len()).to_string(),
                         value: input_s,
                     });
                     return node
                 }),
                 parse_emphasis,
-                // parse_line_emphasis,
-                // parse_wide_emphasis,
-                // parse_sp_asterisk,
     ))(s){
         Ok((remain, node)) => {
             println!("parse_inline(Success): {:?}", s);
@@ -405,31 +391,15 @@ fn parse_inline(s: &str) -> IResult<&str, ASTNode> {
  * 強調
  * (入れ子を許容)
  * */
-
 fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
     println!("parse_emphasis(in): {:?}", s);
     match delimited(
         tuple((char('*'), peek(not(parse_soft_break)))),
         many1(alt((
             parse_inline,
-            /*
-            map(tuple((
-                peek(not(
-                    tuple((
-                        parse_soft_break,
-                        parse_nsp_string,
-                        char('*'),
-                        parse_nsp_string,
-                    ))
-                )),
-                parse_soft_break_node,
-            )), |(_,r)| r ),
-            */
-            
             parse_soft_break_node,
         ))),
         tuple((peek(not(parse_soft_break)),char('*'))),
-        //char('*'),
     )(s){
         Ok((remain, nodes)) => {
             println!("parse_emphasis(Success): {:?} -> {:?}", s, remain);
@@ -437,6 +407,7 @@ fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
                 elm_type: ASTType::Emphasis,
                 elm_meta: ASTMetaData::Nil,
                 value: "".to_string(),
+                raw_value: s.slice(..s.len()-remain.len()).to_string(),
             });
             node.append_node_from_vec(nodes);   
             Ok((remain, node))
@@ -449,41 +420,6 @@ fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
 }
 
 /*
-
-fn parse_line_emphasis(s: &str) -> IResult<&str, ASTNode>{
-
-    let r = delimited(
-        char('*'),
-        parse_nsp_string,
-        char('*'),
-    )(s);
-
-    match r {
-        Ok((remain, text)) => {
-            match parse_inline( &text ) {
-                Ok((_, child)) => {
-                    let mut node = ASTNode::new( ASTElm {
-                        elm_type: ASTType::Emphasis,
-                        elm_meta: ASTMetaData::Nil,
-                        value: "".to_string(),
-                    });
-                    node.append_node_from_vec(child);   
-                    Ok((remain, node))
-                },
-                Err(_) => {
-                    Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
-                }
-            }
-
-        },
-        Err(_) => {
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
-        }
-    }
-}
-*/
-
-/*
  * パラグラフ中のアスタリスクのパース
  * */
 fn parse_sp_asterisk(s: &str) -> IResult<&str, ASTNode>{
@@ -492,6 +428,7 @@ fn parse_sp_asterisk(s: &str) -> IResult<&str, ASTNode>{
             elm_type: ASTType::Text,
             elm_meta: ASTMetaData::Nil,
             value: input_s.to_string(),
+            raw_value: s.slice(..input_s.len()).to_string(),
         });
         return node
     })(s){
@@ -503,55 +440,6 @@ fn parse_sp_asterisk(s: &str) -> IResult<&str, ASTNode>{
         }
     }
 }
-
-/* 
- * 2行以上にわたる書式(アスタリスク間の改行を許容)
- * */
-/*
-fn parse_wide_emphasis(s: &str) -> IResult<&str, ASTNode>{
-    println!("parse_wide_emphasis(in): {:?}", s);
-
-    let open_cnt = 0;
-
-    tuple((
-        char('*'),
-        parse_nbr_string,
-        many1(alt((
-                    map(tuple((char('\n'),char('*'),parse_nbr_string),|(a,b,c)|{
-                        open_cnt += 1;
-                        a.to_string() + &b.to_string() + c
-                    }),
-                    parse_nbr_string,
-                    )
-                ))),
-    ));
-    match delimited(
-        char('*'),
-        parse_inline,
-        char('*')
-    )(s) {
-        Ok((remain, nodes)) => {
-            println!("parse_wide_emphasis(Ok): {:?}", nodes);
-            let mut node = ASTNode::new( ASTElm {
-                elm_type: ASTType::Emphasis,
-                elm_meta: ASTMetaData::Nil,
-                value: "".to_string(),
-            });
-            node.append_node_from_vec( nodes );
-            Ok((remain, node))
-        },
-        Err(_) => {
-            println!("parse_wide_emphasis(Err): {:?}", s);
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
-        }
-    }
-}
-*/
-
-/*
-fn parse_wide_emphasis(s: &str) -> IResult<&str, ASTNode>{
-}
-*/
 
 fn numeric_in_parantheses(s: &str) -> IResult<&str, &str> {
     delimited(
@@ -607,6 +495,7 @@ fn parse_paragraph(s: &str) -> IResult<&str, ASTNode> {
                 alt((
                     parse_inline,
                     parse_soft_break_node,
+                    parse_sp_asterisk,
                 ))
             )(&separated);
 
@@ -615,6 +504,7 @@ fn parse_paragraph(s: &str) -> IResult<&str, ASTNode> {
                     let mut node = ASTNode::new( ASTElm {
                         elm_type: ASTType::Paragraph,
                         elm_meta: ASTMetaData::Nil,
+                        raw_value: separated.to_string(),
                         ..Default::default()
                     });
                     node.append_node_from_vec( child_node );
@@ -664,16 +554,18 @@ fn parse_separate(s: &str) -> IResult<&str, String>{
 }
 
 // ブロック終了の判定
+// Headerの書式、ハードブレイク
 fn parse_separator(s: &str) -> IResult<&str, String>{
     let r = alt((
                 parse_hard_break,
                 parse_break_or_eof,
+
+                // 見出し(headering)
                 map(tuple((
                     many_m_n(0, 3, parse_space),
                     map(many_m_n(1, 6, char('#')), |input_s: Vec<char>|{
                         input_s.len()
                     }),
-                    //space1,
                     many1(char(' '))
                 )),|input_s| "".to_string()),
             ))(s);
@@ -699,6 +591,7 @@ pub fn md_parse(s: &str, mut node: ASTNode) -> ASTNode {
     node.set_node_type( ASTType::Document );
     node.set_meta( ASTMetaData::Nil );
     node.set_value("".to_string());
+    node.set_raw_value( s.to_string() );
 
     let r = many0( parse_blocks )(s);
 
