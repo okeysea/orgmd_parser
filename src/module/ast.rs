@@ -1,16 +1,19 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::cell::RefMut;
+use serde::Serialize;
 
 type Link = Rc<RefCell<ASTNode>>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct ASTNode {
+    #[serde(flatten)]
     data: ASTElm,
+
     children: Vec<Link>,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Serialize)]
 pub struct ASTElm {
     pub elm_type: ASTType,
     pub elm_meta: ASTMetaData,
@@ -18,7 +21,7 @@ pub struct ASTElm {
     pub raw_value: String,     // パース前のデータ
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum ASTType {
     Document,
     Paragraph,
@@ -32,7 +35,7 @@ impl Default for ASTType {
     fn default() -> Self { ASTType::Document }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum ASTMetaData {
     Nil,
     H1,
@@ -127,7 +130,6 @@ impl ASTNode {
     // 
     // --- rendering ---
     //
-
     pub fn render_debug_format(&self) -> String {
         self._render_debug_format(self)
     }

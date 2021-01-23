@@ -28,6 +28,7 @@ use nom::multi::{
 };
 use std::ops::RangeFrom;
 
+// 制御文字と半角スペース以外の文字 -> OK
 fn decide_char_printable(input: char) -> Result<char, String>
 {
     let i = input as u32;
@@ -47,6 +48,7 @@ fn decide_char_printable(input: char) -> Result<char, String>
     }
 }
 
+// パーサコンビネータ用 制御文字と半角スペース以外の文字を受け入れる関数
 fn printable_char<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
 where
     T: InputIter + InputLength + Slice<RangeFrom<usize>>,
@@ -363,7 +365,6 @@ fn parse_nsp_string(s: &str) -> IResult<&str, String> {
 
 // インライン書式のパース
 fn parse_inline(s: &str) -> IResult<&str, ASTNode> {
-    println!("parse_inline(in): {:?}", s);
     match alt((
                 map(parse_nsp_string, |input_s: String|{
                     let node = ASTNode::new( ASTElm {
@@ -377,11 +378,9 @@ fn parse_inline(s: &str) -> IResult<&str, ASTNode> {
                 parse_emphasis,
     ))(s){
         Ok((remain, node)) => {
-            println!("parse_inline(Success): {:?}", s);
             Ok((remain, node))
         },
         Err(_)=>{
-            println!("parse_inline(Error): {:?}", s);
             Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
         },
     }
@@ -390,9 +389,10 @@ fn parse_inline(s: &str) -> IResult<&str, ASTNode> {
 /* 
  * 強調
  * (入れ子を許容)
+ *
+ * TODO: アスタリスク前後の記号の取り扱いをcommonmarkに合わせる
  * */
 fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
-    println!("parse_emphasis(in): {:?}", s);
     match delimited(
         tuple((char('*'), peek(not(parse_soft_break)))),
         many1(alt((
@@ -402,7 +402,6 @@ fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
         tuple((peek(not(parse_soft_break)),char('*'))),
     )(s){
         Ok((remain, nodes)) => {
-            println!("parse_emphasis(Success): {:?} -> {:?}", s, remain);
             let mut node = ASTNode::new( ASTElm {
                 elm_type: ASTType::Emphasis,
                 elm_meta: ASTMetaData::Nil,
@@ -413,7 +412,6 @@ fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
             Ok((remain, node))
         },
         Err(_) => {
-            println!("parse_emphasis(Error): {:?}", s);
             Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
         }
     }
@@ -421,6 +419,7 @@ fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
 
 /*
  * パラグラフ中のアスタリスクのパース
+ * (強調構文から漏れたアスタリスクの処理)
  * */
 fn parse_sp_asterisk(s: &str) -> IResult<&str, ASTNode>{
     match map(parse_asterisk_char, |input_s: char|{
@@ -441,19 +440,12 @@ fn parse_sp_asterisk(s: &str) -> IResult<&str, ASTNode>{
     }
 }
 
-fn numeric_in_parantheses(s: &str) -> IResult<&str, &str> {
-    delimited(
-        char('('),
-        delimited(multispace0, digit1, multispace0),
-        char(')'),
-    )(s)
-}
-
 /*
 <Headers>   ::=   <Space>{0..3} '#'{1..6} <Space>{1..} <NBRString> ['#'*] <BreakOrEof>
                 | <Space>{0..3} ( ( <Char> | <Space> ) <SoftBreak> )* ('='|'-')*
+TODO: 上段の構文の後ろシャープ記号を無視するようにする
+TODO: 下段の構文のパース処理
  */
-
 fn parse_headers(s: &str) -> IResult<&str, ASTNode> {
     let r = tuple((
                 many_m_n(0, 3, parse_space),
@@ -471,6 +463,7 @@ fn parse_headers(s: &str) -> IResult<&str, ASTNode> {
             let mut node = ASTNode::new( ASTElm {
                 elm_type: ASTType::Headers,
                 elm_meta: ASTMetaData::Nil,
+                raw_value: s.slice(..s.len()-remain.len()).to_string(),
                 ..Default::default()
             });
             // インライン書式のパース
@@ -486,6 +479,11 @@ fn parse_headers(s: &str) -> IResult<&str, ASTNode> {
 }
 
 
+/* 段落のパース
+ * 
+ * 処理順序
+ *   段落の切り出しー> インライン書式のパース
+ * */
 fn parse_paragraph(s: &str) -> IResult<&str, ASTNode> {
 
     match parse_separate(s) {
@@ -554,7 +552,7 @@ fn parse_separate(s: &str) -> IResult<&str, String>{
 }
 
 // ブロック終了の判定
-// Headerの書式、ハードブレイク
+// 終了判断: Headerの書式、ハードブレイク
 fn parse_separator(s: &str) -> IResult<&str, String>{
     let r = alt((
                 parse_hard_break,

@@ -31,4 +31,6 @@ level*
 ", node);
     println!("{:?}", node);
     println!("{:?}", node.render_debug_format());
+    let content = serde_json::to_string_pretty(&node).unwrap();
+    println!("{}", content);
 }

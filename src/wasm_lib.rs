@@ -20,6 +20,8 @@ pub fn greet(name: &str) {
 #[wasm_bindgen]
 pub fn parse_markdown(source: &str) -> String {
     let mut node = ASTNode::new( ASTElm { ..Default::default() } );
-    md_parse(source, node);
+    node = md_parse(source, node);
+    let serialized = serde_json::to_string(&node).unwrap();
+    serialized
 }
 
