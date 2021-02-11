@@ -1,4 +1,5 @@
-pub mod module;
+mod module;
+
 use module::ast::{
     ASTNode, ASTElm, 
 };

@@ -13,6 +13,13 @@ RUN apt-get update
 RUN apt-get install bash
 RUN apt-get install gosu 
 
+# Install yarn (for package publish)
+RUN apt-get update && apt-get install -y nodejs --no-install-recommends \
+      && rm -rf /var/lib/apt/lists/*
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
+      && echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
+RUN apt-get update -qq && apt-get install yarn
+
 # RUN apk update
 # RUN apk add shadow
 # RUN apk add su-exec

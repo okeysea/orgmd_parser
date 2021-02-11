@@ -185,6 +185,7 @@ impl<T> Iterator for ASTNode<T> {
 }
 */
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -274,4 +275,4 @@ mod tests {
         println!("{:?}", node);
         println!("{:?}", node_empty);
     }
-}
+}*/

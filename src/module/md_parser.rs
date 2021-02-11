@@ -607,6 +607,7 @@ pub fn md_parse(s: &str, mut node: ASTNode) -> ASTNode {
 }
 
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -822,4 +823,4 @@ mod tests {
         println!("{:?}", parse_nsp_string("a*hoge"));
         println!("{:?}", parse_nsp_string("hoge*"));
     }
-}
+}*/
