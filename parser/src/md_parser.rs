@@ -1,39 +1,22 @@
 extern crate nom;
-use crate::module::ast::*;
+use crate::ast::*;
 
-use nom::{
-    Err, IResult, InputIter, Slice, AsChar,
-    InputTakeAtPosition, InputLength,
-};
-use nom::error::{
-    ErrorKind, ParseError,
-};
+use nom::branch::{alt, permutation};
 use nom::character::complete::{
-    char, digit1, multispace0, line_ending,
-    not_line_ending, space0, space1, anychar,
-    alpha1,
+    alpha1, anychar, char, digit1, line_ending, multispace0, not_line_ending, space0, space1,
 };
-use nom::branch::{
-    alt, permutation,
-};
-use nom::combinator::{
-    eof, map, peek, not,
-    cond,
-};
-use nom::sequence::{
-    delimited, tuple,
-};
-use nom::multi::{
-    many_m_n, many1, many0,
-};
+use nom::combinator::{cond, eof, map, not, peek};
+use nom::error::{ErrorKind, ParseError};
+use nom::multi::{many0, many1, many_m_n};
+use nom::sequence::{delimited, tuple};
+use nom::{AsChar, Err, IResult, InputIter, InputLength, InputTakeAtPosition, Slice};
 use std::ops::RangeFrom;
 
 // 制御文字と半角スペース以外の文字 -> OK
-fn decide_char_printable(input: char) -> Result<char, String>
-{
+fn decide_char_printable(input: char) -> Result<char, String> {
     let i = input as u32;
     let mut r = false;
-    
+
     // 制御文字の判定
     r = 0x00 <= i && i <= 0x1F;
     r = r || i == 0x7F; // delete
@@ -43,7 +26,7 @@ fn decide_char_printable(input: char) -> Result<char, String>
 
     if r == false {
         Ok(input)
-    }else{
+    } else {
         Err("not printable char".to_string())
     }
 }
@@ -52,25 +35,22 @@ fn decide_char_printable(input: char) -> Result<char, String>
 fn printable_char<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
 where
     T: InputIter + InputLength + Slice<RangeFrom<usize>>,
-    <T as InputIter>::Item: AsChar, <T as InputIter>::Item: std::fmt::Debug,
+    <T as InputIter>::Item: AsChar,
+    <T as InputIter>::Item: std::fmt::Debug,
 {
     let mut it = input.iter_indices();
     match it.next() {
         None => Err(Err::Error(E::from_error_kind(input, ErrorKind::Eof))),
         Some((_, c)) => match it.next() {
-            None => {
-                match decide_char_printable(c.as_char()) {
-                    Ok(c)  => Ok((input.slice(input.input_len()..), c.as_char())),
-                    Err(_) => Err(Err::Error(E::from_error_kind(input, ErrorKind::Char))),
-                }
+            None => match decide_char_printable(c.as_char()) {
+                Ok(c) => Ok((input.slice(input.input_len()..), c.as_char())),
+                Err(_) => Err(Err::Error(E::from_error_kind(input, ErrorKind::Char))),
             },
-            Some((idx, _)) => {
-                match decide_char_printable(c.as_char()) {
-                    Ok(c)  => Ok((input.slice(idx..), c.as_char())),
-                    Err(_) => Err(Err::Error(E::from_error_kind(input, ErrorKind::Char))),
-                }
+            Some((idx, _)) => match decide_char_printable(c.as_char()) {
+                Ok(c) => Ok((input.slice(idx..), c.as_char())),
+                Err(_) => Err(Err::Error(E::from_error_kind(input, ErrorKind::Char))),
             },
-        }
+        },
     }
 }
 
@@ -87,7 +67,6 @@ fn util_vecstring_to_string(s: Vec<String>) -> String {
 fn util_vecchar_to_string(s: Vec<char>) -> String {
     s.into_iter().collect()
 }
-
 
 /* ------- characters ------- */
 // コントロール文字、スペース・タブ・改行を除くUTF-8文字すべてを受けいれる
@@ -107,31 +86,27 @@ fn parse_space(s: &str) -> IResult<&str, char> {
 // コントロール文字・改行を除くUTF-8文字すべてを受けいれる
 // not-break-char
 fn parse_nbr_char(s: &str) -> IResult<&str, String> {
-    map(alt((
-        parse_tab,
-        parse_space,
-        parse_nc_char
-    )), |input_s: char| {
-        let ret: String = input_s.to_string();
-        return ret
-    })(s)
+    map(
+        alt((parse_tab, parse_space, parse_nc_char)),
+        |input_s: char| {
+            let ret: String = input_s.to_string();
+            return ret;
+        },
+    )(s)
 }
 
 fn parse_blank_char(s: &str) -> IResult<&str, char> {
-    alt((
-        char(' '),
-        char('\n'),
-    ))(s)
+    alt((char(' '), char('\n')))(s)
 }
 
 // 記号(ASCII)・コントロール文字除くUTF-8文字すべてを受けいれる
 // not-special-char
 // インライン書式のパース用→ *Empasis*
 fn parse_nsp_char(s: &str) -> IResult<&str, String> {
-    map(tuple((
-        peek(not(parse_sp_char)),
-        parse_nbr_char,
-    )),|(_, r)| r )(s)
+    map(
+        tuple((peek(not(parse_sp_char)), parse_nbr_char)),
+        |(_, r)| r,
+    )(s)
 }
 
 fn parse_sp_char(s: &str) -> IResult<&str, char> {
@@ -156,147 +131,148 @@ fn parse_sp_char(s: &str) -> IResult<&str, char> {
         parse_lessthan_char,
         parse_equal_char,
         parse_greaterthan_char,
-        alt((parse_question_char,
-        parse_at_char,
-        parse_lsquare_char,
-        parse_backslash_char,
-        parse_rsquare_char,
-        parse_hat_char,
-        parse_underline_char,
-        parse_backquote_char,
-        parse_lcurly_char,
-        parse_pipe_char,
-        parse_rcurly_char,
-        parse_tilde_char,
-        ))
+        alt((
+            parse_question_char,
+            parse_at_char,
+            parse_lsquare_char,
+            parse_backslash_char,
+            parse_rsquare_char,
+            parse_hat_char,
+            parse_underline_char,
+            parse_backquote_char,
+            parse_lcurly_char,
+            parse_pipe_char,
+            parse_rcurly_char,
+            parse_tilde_char,
+        )),
     ))(s)
 }
 
-fn parse_exclamation_char(s: &str) -> IResult<&str, char>{
+fn parse_exclamation_char(s: &str) -> IResult<&str, char> {
     char('!')(s)
 }
 
-fn parse_double_quotation_char(s: &str) -> IResult<&str, char>{
+fn parse_double_quotation_char(s: &str) -> IResult<&str, char> {
     char('"')(s)
 }
 
-fn parse_pound_char(s: &str) -> IResult<&str, char>{
+fn parse_pound_char(s: &str) -> IResult<&str, char> {
     char('#')(s)
 }
 
-fn parse_dollar_char(s: &str) -> IResult<&str, char>{
+fn parse_dollar_char(s: &str) -> IResult<&str, char> {
     char('$')(s)
 }
 
-fn parse_percent_char(s: &str) -> IResult<&str, char>{
+fn parse_percent_char(s: &str) -> IResult<&str, char> {
     char('%')(s)
 }
 
-fn parse_ampersand_char(s: &str) -> IResult<&str, char>{
+fn parse_ampersand_char(s: &str) -> IResult<&str, char> {
     char('&')(s)
 }
 
-fn parse_single_quotation_char(s: &str) -> IResult<&str, char>{
+fn parse_single_quotation_char(s: &str) -> IResult<&str, char> {
     char('\'')(s)
 }
 
-fn parse_lparenthesis_char(s: &str) -> IResult<&str, char>{
+fn parse_lparenthesis_char(s: &str) -> IResult<&str, char> {
     char('(')(s)
 }
 
-fn parse_rparenthesis_char(s: &str) -> IResult<&str, char>{
+fn parse_rparenthesis_char(s: &str) -> IResult<&str, char> {
     char(')')(s)
 }
 
-fn parse_asterisk_char(s: &str) -> IResult<&str, char>{
+fn parse_asterisk_char(s: &str) -> IResult<&str, char> {
     char('*')(s)
 }
 
-fn parse_plus_char(s: &str) -> IResult<&str, char>{
+fn parse_plus_char(s: &str) -> IResult<&str, char> {
     char('+')(s)
 }
 
-fn parse_comma_char(s: &str) -> IResult<&str, char>{
+fn parse_comma_char(s: &str) -> IResult<&str, char> {
     char(',')(s)
 }
 
-fn parse_hyphen_char(s: &str) -> IResult<&str, char>{
+fn parse_hyphen_char(s: &str) -> IResult<&str, char> {
     char('-')(s)
 }
 
-fn parse_period_char(s: &str) -> IResult<&str, char>{
+fn parse_period_char(s: &str) -> IResult<&str, char> {
     char('.')(s)
 }
 
-fn parse_slash_char(s: &str) -> IResult<&str, char>{
+fn parse_slash_char(s: &str) -> IResult<&str, char> {
     char('/')(s)
 }
 
-fn parse_colon_char(s: &str) -> IResult<&str, char>{
+fn parse_colon_char(s: &str) -> IResult<&str, char> {
     char(':')(s)
 }
 
-fn parse_semicolon_char(s: &str) -> IResult<&str, char>{
+fn parse_semicolon_char(s: &str) -> IResult<&str, char> {
     char(';')(s)
 }
 
-fn parse_lessthan_char(s: &str) -> IResult<&str, char>{
+fn parse_lessthan_char(s: &str) -> IResult<&str, char> {
     char('<')(s)
 }
 
-fn parse_equal_char(s: &str) -> IResult<&str, char>{
+fn parse_equal_char(s: &str) -> IResult<&str, char> {
     char('=')(s)
 }
 
-fn parse_greaterthan_char(s: &str) -> IResult<&str, char>{
+fn parse_greaterthan_char(s: &str) -> IResult<&str, char> {
     char('>')(s)
 }
 
-fn parse_question_char(s: &str) -> IResult<&str, char>{
+fn parse_question_char(s: &str) -> IResult<&str, char> {
     char('?')(s)
 }
 
-fn parse_at_char(s: &str) -> IResult<&str, char>{
+fn parse_at_char(s: &str) -> IResult<&str, char> {
     char('@')(s)
 }
 
-fn parse_lsquare_char(s: &str) -> IResult<&str, char>{
+fn parse_lsquare_char(s: &str) -> IResult<&str, char> {
     char('[')(s)
 }
 
-fn parse_backslash_char(s: &str) -> IResult<&str, char>{
+fn parse_backslash_char(s: &str) -> IResult<&str, char> {
     char('\\')(s)
 }
 
-fn parse_rsquare_char(s: &str) -> IResult<&str, char>{
+fn parse_rsquare_char(s: &str) -> IResult<&str, char> {
     char(']')(s)
 }
 
-fn parse_hat_char(s: &str) -> IResult<&str, char>{
+fn parse_hat_char(s: &str) -> IResult<&str, char> {
     char('^')(s)
 }
 
-fn parse_underline_char(s: &str) -> IResult<&str, char>{
+fn parse_underline_char(s: &str) -> IResult<&str, char> {
     char('_')(s)
 }
 
-fn parse_backquote_char(s: &str) -> IResult<&str, char>{
+fn parse_backquote_char(s: &str) -> IResult<&str, char> {
     char('`')(s)
 }
 
-fn parse_lcurly_char(s: &str) -> IResult<&str, char>{
+fn parse_lcurly_char(s: &str) -> IResult<&str, char> {
     char('{')(s)
 }
 
-fn parse_pipe_char(s: &str) -> IResult<&str, char>{
+fn parse_pipe_char(s: &str) -> IResult<&str, char> {
     char('|')(s)
 }
 
-fn parse_rcurly_char(s: &str) -> IResult<&str, char>{
+fn parse_rcurly_char(s: &str) -> IResult<&str, char> {
     char('}')(s)
 }
 
-fn parse_tilde_char(s: &str) -> IResult<&str, char>{
+fn parse_tilde_char(s: &str) -> IResult<&str, char> {
     char('~')(s)
 }
 
@@ -304,31 +280,30 @@ fn parse_tilde_char(s: &str) -> IResult<&str, char>{
 
 // ソフトブレイク
 fn parse_soft_break(s: &str) -> IResult<&str, String> {
-    map(line_ending, |input_s: &str| input_s.to_owned() )(s)
+    map(line_ending, |input_s: &str| input_s.to_owned())(s)
 }
 
 fn parse_soft_break_node(s: &str) -> IResult<&str, ASTNode> {
     match parse_soft_break(s) {
-        Ok((remain, _ )) => {
-            let node = ASTNode::new( ASTElm {
+        Ok((remain, _)) => {
+            let node = ASTNode::new(ASTElm {
                 elm_type: ASTType::SoftBreak,
                 elm_meta: ASTMetaData::Nil,
                 value: "\n".to_string(),
-                raw_value: s.slice(..s.len() - remain.len()).to_string(),   
+                raw_value: s.slice(..s.len() - remain.len()).to_string(),
             });
             Ok((remain, node))
-        },
-        Err(e) => {
-            Err(e)
         }
+        Err(e) => Err(e),
     }
 }
 
 // ハードブレイク(ブロック終了)
 fn parse_hard_break(s: &str) -> IResult<&str, String> {
-    map(many_m_n(2, 9999, parse_soft_break), |input_s: Vec<String>| {
-        input_s.into_iter().collect() 
-    })(s)
+    map(
+        many_m_n(2, 9999, parse_soft_break),
+        |input_s: Vec<String>| input_s.into_iter().collect(),
+    )(s)
 }
 
 fn parse_break_or_eof(s: &str) -> IResult<&str, String> {
@@ -339,26 +314,23 @@ fn parse_break_or_eof(s: &str) -> IResult<&str, String> {
 }
 
 fn parse_char(s: &str) -> IResult<&str, String> {
-    alt((
-        parse_soft_break,
-        parse_nbr_char,
-    ))(s)
+    alt((parse_soft_break, parse_nbr_char))(s)
 }
 
 fn parse_nbr_string(s: &str) -> IResult<&str, String> {
-    map(many1(parse_nbr_char),|input_s: Vec<String>|{
+    map(many1(parse_nbr_char), |input_s: Vec<String>| {
         util_vecstring_to_string(input_s)
     })(s)
 }
 
 fn parse_string(s: &str) -> IResult<&str, String> {
-    map(many1(parse_char),|input_s: Vec<String>|{
+    map(many1(parse_char), |input_s: Vec<String>| {
         util_vecstring_to_string(input_s)
     })(s)
 }
 
 fn parse_nsp_string(s: &str) -> IResult<&str, String> {
-    map(many1(parse_nsp_char),|input_s: Vec<String>|{
+    map(many1(parse_nsp_char), |input_s: Vec<String>| {
         util_vecstring_to_string(input_s)
     })(s)
 }
@@ -366,54 +338,47 @@ fn parse_nsp_string(s: &str) -> IResult<&str, String> {
 // インライン書式のパース
 fn parse_inline(s: &str) -> IResult<&str, ASTNode> {
     match alt((
-                map(parse_nsp_string, |input_s: String|{
-                    let node = ASTNode::new( ASTElm {
-                        elm_type: ASTType::Text,
-                        elm_meta: ASTMetaData::Nil,
-                        raw_value: s.slice(..input_s.len()).to_string(),
-                        value: input_s,
-                    });
-                    return node
-                }),
-                parse_emphasis,
-    ))(s){
-        Ok((remain, node)) => {
-            Ok((remain, node))
-        },
-        Err(_)=>{
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
-        },
+        map(parse_nsp_string, |input_s: String| {
+            let node = ASTNode::new(ASTElm {
+                elm_type: ASTType::Text,
+                elm_meta: ASTMetaData::Nil,
+                raw_value: s.slice(..input_s.len()).to_string(),
+                value: input_s,
+            });
+            return node;
+        }),
+        parse_emphasis,
+    ))(s)
+    {
+        Ok((remain, node)) => Ok((remain, node)),
+        Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
     }
 }
 
-/* 
+/*
  * 強調
  * (入れ子を許容)
  *
  * TODO: アスタリスク前後の記号の取り扱いをcommonmarkに合わせる
  * */
-fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
+fn parse_emphasis(s: &str) -> IResult<&str, ASTNode> {
     match delimited(
         tuple((char('*'), peek(not(parse_soft_break)))),
-        many1(alt((
-            parse_inline,
-            parse_soft_break_node,
-        ))),
-        tuple((peek(not(parse_soft_break)),char('*'))),
-    )(s){
+        many1(alt((parse_inline, parse_soft_break_node))),
+        tuple((peek(not(parse_soft_break)), char('*'))),
+    )(s)
+    {
         Ok((remain, nodes)) => {
-            let mut node = ASTNode::new( ASTElm {
+            let mut node = ASTNode::new(ASTElm {
                 elm_type: ASTType::Emphasis,
                 elm_meta: ASTMetaData::Nil,
                 value: "".to_string(),
-                raw_value: s.slice(..s.len()-remain.len()).to_string(),
+                raw_value: s.slice(..s.len() - remain.len()).to_string(),
             });
-            node.append_node_from_vec(nodes);   
+            node.append_node_from_vec(nodes);
             Ok((remain, node))
-        },
-        Err(_) => {
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
         }
+        Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
     }
 }
 
@@ -421,22 +386,19 @@ fn parse_emphasis(s: &str) -> IResult<&str, ASTNode>{
  * パラグラフ中のアスタリスクのパース
  * (強調構文から漏れたアスタリスクの処理)
  * */
-fn parse_sp_asterisk(s: &str) -> IResult<&str, ASTNode>{
-    match map(parse_asterisk_char, |input_s: char|{
-        let node = ASTNode::new( ASTElm {
+fn parse_sp_asterisk(s: &str) -> IResult<&str, ASTNode> {
+    match map(parse_asterisk_char, |input_s: char| {
+        let node = ASTNode::new(ASTElm {
             elm_type: ASTType::Text,
             elm_meta: ASTMetaData::Nil,
             value: input_s.to_string(),
             raw_value: s.slice(..input_s.len()).to_string(),
         });
-        return node
-    })(s){
-        Ok((remain, node)) => {
-            Ok((remain, node))
-        },
-        Err(_) => {
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
-        }
+        return node;
+    })(s)
+    {
+        Ok((remain, node)) => Ok((remain, node)),
+        Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
     }
 }
 
@@ -448,165 +410,140 @@ TODO: 下段の構文のパース処理
  */
 fn parse_headers(s: &str) -> IResult<&str, ASTNode> {
     let r = tuple((
-                many_m_n(0, 3, parse_space),
-                map(many_m_n(1, 6, char('#')), |input_s: Vec<char>|{
-                    input_s.len()
-                }),
-                //space1,
-                many1(char(' ')),
-                parse_nbr_string,
-                many0((char('#'))),
-                parse_break_or_eof,
-            ))(s);
+        many_m_n(0, 3, parse_space),
+        map(many_m_n(1, 6, char('#')), |input_s: Vec<char>| {
+            input_s.len()
+        }),
+        //space1,
+        many1(char(' ')),
+        parse_nbr_string,
+        many0((char('#'))),
+        parse_break_or_eof,
+    ))(s);
     match r {
         Ok((remain, (_, level, _, text, _, _))) => {
-            let mut node = ASTNode::new( ASTElm {
+            let mut node = ASTNode::new(ASTElm {
                 elm_type: ASTType::Headers,
                 elm_meta: ASTMetaData::Nil,
-                raw_value: s.slice(..s.len()-remain.len()).to_string(),
+                raw_value: s.slice(..s.len() - remain.len()).to_string(),
                 ..Default::default()
             });
             // インライン書式のパース
             // TODO: エラー処理
             let (_, inline_node) = many1(parse_inline)(&text).unwrap();
-            node.append_node_from_vec( inline_node );
+            node.append_node_from_vec(inline_node);
             Ok((remain, node))
-        },
-        Err(_) => {
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
-        },
+        }
+        Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
     }
 }
 
-
 /* 段落のパース
- * 
+ *
  * 処理順序
  *   段落の切り出しー> インライン書式のパース
  * */
 fn parse_paragraph(s: &str) -> IResult<&str, ASTNode> {
-
     match parse_separate(s) {
         Ok((remain, separated)) => {
-
-            let child_r = many1(
-                alt((
-                    parse_inline,
-                    parse_soft_break_node,
-                    parse_sp_asterisk,
-                ))
-            )(&separated);
+            let child_r = many1(alt((
+                parse_inline,
+                parse_soft_break_node,
+                parse_sp_asterisk,
+            )))(&separated);
 
             match child_r {
                 Ok((_, child_node)) => {
-                    let mut node = ASTNode::new( ASTElm {
+                    let mut node = ASTNode::new(ASTElm {
                         elm_type: ASTType::Paragraph,
                         elm_meta: ASTMetaData::Nil,
                         raw_value: separated.to_string(),
                         ..Default::default()
                     });
-                    node.append_node_from_vec( child_node );
+                    node.append_node_from_vec(child_node);
                     Ok((remain, node))
-                },
-                Err(_) => {
-                    Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
-                },
+                }
+                Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
             }
-        },
-        Err(_) => {
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
         }
+        Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
     }
 }
 
 // 入力位置からブロック終了までの文字を返す
-fn parse_separate(s: &str) -> IResult<&str, String>{
-    let r = tuple((
-                parse_nbr_string,
-                parse_break_or_eof,
-            ))(s);
+fn parse_separate(s: &str) -> IResult<&str, String> {
+    let r = tuple((parse_nbr_string, parse_break_or_eof))(s);
     match r {
-        Ok((remain, ( text, br ))) => {
+        Ok((remain, (text, br))) => {
             let quit = parse_separator(remain);
             match quit {
                 // 最終行は改行を出力しない
-                Ok((remain, _)) => Ok((remain, text)),                          
+                Ok((remain, _)) => Ok((remain, text)),
                 Err(_) => {
                     let continue_r = parse_separate(remain);
                     match continue_r {
                         Ok((continue_remain, continue_text)) => {
                             // 行中は改行を出力する
-                            Ok((continue_remain, text + &br + &continue_text)) 
-                        },
-                        Err(_) =>{
-                            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
+                            Ok((continue_remain, text + &br + &continue_text))
                         }
+                        Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
                     }
-                },
+                }
             }
-        },
-        Err(_) =>{
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
         }
+        Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
     }
 }
 
 // ブロック終了の判定
 // 終了判断: Headerの書式、ハードブレイク
-fn parse_separator(s: &str) -> IResult<&str, String>{
+fn parse_separator(s: &str) -> IResult<&str, String> {
     let r = alt((
-                parse_hard_break,
-                parse_break_or_eof,
-
-                // 見出し(headering)
-                map(tuple((
-                    many_m_n(0, 3, parse_space),
-                    map(many_m_n(1, 6, char('#')), |input_s: Vec<char>|{
-                        input_s.len()
-                    }),
-                    many1(char(' '))
-                )),|input_s| "".to_string()),
-            ))(s);
+        parse_hard_break,
+        parse_break_or_eof,
+        // 見出し(headering)
+        map(
+            tuple((
+                many_m_n(0, 3, parse_space),
+                map(many_m_n(1, 6, char('#')), |input_s: Vec<char>| {
+                    input_s.len()
+                }),
+                many1(char(' ')),
+            )),
+            |input_s| "".to_string(),
+        ),
+    ))(s);
     match r {
-        Ok((_, parse_result)) => {
-            Ok((s.slice(parse_result.chars().count()..), "".to_string()))
-        },
-        Err(_) => {
-            Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char)))
-        },
+        Ok((_, parse_result)) => Ok((s.slice(parse_result.chars().count()..), "".to_string())),
+        Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
     }
 }
 
-
 fn parse_blocks(s: &str) -> IResult<&str, ASTNode> {
-    alt((
-        parse_headers,
-        parse_paragraph
-    ))(s)
+    alt((parse_headers, parse_paragraph))(s)
 }
 
 pub fn md_parse(s: &str, mut node: ASTNode) -> ASTNode {
-    node.set_node_type( ASTType::Document );
-    node.set_meta( ASTMetaData::Nil );
+    node.set_node_type(ASTType::Document);
+    node.set_meta(ASTMetaData::Nil);
     node.set_value("".to_string());
-    node.set_raw_value( s.to_string() );
+    node.set_raw_value(s.to_string());
 
-    let r = many0( parse_blocks )(s);
+    let r = many0(parse_blocks)(s);
 
     match r {
         Ok((remain, result)) => {
             for child_node in result {
                 node.append_node(child_node);
             }
-        },
-        Err(_) => {
         }
+        Err(_) => {}
     }
 
-    return node
+    return node;
 }
 
-
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -643,7 +580,7 @@ mod tests {
         let test_case = "parse_string\ntest\nallow line-break";
         assert_eq!(parse_string(test_case), Ok(("", test_case.to_string())));
     }
-    
+
     #[test]
     fn test_parse_headers(){
         let mut dest = ASTNode::new( ASTElm {
@@ -718,7 +655,7 @@ mod tests {
         let mut node = ASTNode::new( ASTElm{ ..Default::default() } );
         node = md_parse("# headering\nparagraph\n# headering2", node);
 
-        let mut dest = ASTNode::new( ASTElm{ 
+        let mut dest = ASTNode::new( ASTElm{
             elm_type: ASTType::Document,
             elm_meta: ASTMetaData::Nil,
             value: "".to_string(),
@@ -786,18 +723,18 @@ mod tests {
         println!("{:?}", parse_separate("日本語でも\nしっかりと\n動作するか\n確認します。令和\n\n"));
         println!("!!!!! test parse separate !!!!!");
     }
-    
+
     /*
     #[test]
     fn test_permutation_spec(){
         // println!("permutation spec --------------------------------");
-        
+
         let r = permutation((
                 map( char('a'), |input_s: char| input_s.to_string()),
                 map( char('b'), |input_s: char| input_s.to_string()),
                 map( char('c'), |input_s: char| input_s.to_string()),
         ))("abc");
-       
+
         // println!("{:?}", r);
         match r {
             Ok((remain, _)) => {
@@ -822,4 +759,4 @@ mod tests {
         println!("{:?}", parse_nsp_string("a*hoge"));
         println!("{:?}", parse_nsp_string("hoge*"));
     }
-}
+}*/

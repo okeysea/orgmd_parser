@@ -1,7 +1,7 @@
-use std::rc::Rc;
+use serde::Serialize;
 use std::cell::RefCell;
 use std::cell::RefMut;
-use serde::Serialize;
+use std::rc::Rc;
 
 type Link = Rc<RefCell<ASTNode>>;
 
@@ -18,7 +18,7 @@ pub struct ASTElm {
     pub elm_type: ASTType,
     pub elm_meta: ASTMetaData,
     pub value: String,
-    pub raw_value: String,     // パース前のデータ
+    pub raw_value: String, // パース前のデータ
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -32,7 +32,9 @@ pub enum ASTType {
 }
 
 impl Default for ASTType {
-    fn default() -> Self { ASTType::Document }
+    fn default() -> Self {
+        ASTType::Document
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -47,29 +49,30 @@ pub enum ASTMetaData {
 }
 
 impl Default for ASTMetaData {
-    fn default() -> Self { ASTMetaData::Nil }
+    fn default() -> Self {
+        ASTMetaData::Nil
+    }
 }
 
-
 impl ASTNode {
-    pub fn new(v: ASTElm) -> Self{
+    pub fn new(v: ASTElm) -> Self {
         ASTNode {
             data: v,
             children: vec![],
         }
     }
 
-    pub fn append(&mut self, v: ASTElm){
+    pub fn append(&mut self, v: ASTElm) {
         let node = ASTNode::new(v);
         self.append_node(node);
     }
 
-    pub fn append_node(&mut self, node: ASTNode){
+    pub fn append_node(&mut self, node: ASTNode) {
         let rc_node = Rc::new(RefCell::new(node));
-        self.children.push( Rc::clone( &rc_node ) );
+        self.children.push(Rc::clone(&rc_node));
     }
-    
-    pub fn append_node_from_vec(&mut self, nodes: Vec<ASTNode>){
+
+    pub fn append_node_from_vec(&mut self, nodes: Vec<ASTNode>) {
         for node in nodes {
             self.append_node(node);
         }
@@ -111,11 +114,11 @@ impl ASTNode {
         &mut self.data.raw_value
     }
 
-    pub fn set_node_type(&mut self, v: ASTType){
+    pub fn set_node_type(&mut self, v: ASTType) {
         *self.node_type_mut() = v;
     }
 
-    pub fn set_meta(&mut self, v: ASTMetaData){
+    pub fn set_meta(&mut self, v: ASTMetaData) {
         *self.meta_mut() = v;
     }
 
@@ -127,52 +130,51 @@ impl ASTNode {
         *self.raw_value_mut() = v;
     }
 
-    // 
+    //
     // --- rendering ---
     //
     pub fn render_debug_format(&self) -> String {
         self._render_debug_format(self)
     }
 
-    fn _render_tag(&self, tagname: &str, node: &ASTNode ) -> String {
-        let mut result : String = "<".to_string() + tagname + ">";
+    fn _render_tag(&self, tagname: &str, node: &ASTNode) -> String {
+        let mut result: String = "<".to_string() + tagname + ">";
         for child in &node.children {
-            result = result + &self._render_debug_format( &child.borrow() );
+            result = result + &self._render_debug_format(&child.borrow());
         }
         result = result + "</" + tagname + ">";
-        return result
+        return result;
     }
 
     fn _render_debug_format(&self, node: &ASTNode) -> String {
-        let mut result : String = "".to_string();
+        let mut result: String = "".to_string();
         match node.node_type() {
             ASTType::Document => {
-                result += &self._render_tag("document", &node );
-            },
+                result += &self._render_tag("document", &node);
+            }
             ASTType::Paragraph => {
-                result += &self._render_tag("paragraph", &node );
-            },
+                result += &self._render_tag("paragraph", &node);
+            }
             ASTType::Headers => {
-                result += &self._render_tag("header", &node );
-            },
+                result += &self._render_tag("header", &node);
+            }
             ASTType::Text => {
                 result += &("<text>".to_string() + &node.value().to_string() + "</text>");
-            },
+            }
             ASTType::Emphasis => {
-                result += &self._render_tag("emphasis", &node );
-            },
+                result += &self._render_tag("emphasis", &node);
+            }
             ASTType::SoftBreak => {
                 //result = node.value().to_string();
                 result += "<softbreak />";
-            },
+            }
             _ => {
                 result = result + "<error>Undefined ASTNode Type</error>";
-            },
+            }
         }
-        return result
+        return result;
     }
 }
-
 
 // イテレータの実装
 /*
@@ -185,6 +187,7 @@ impl<T> Iterator for ASTNode<T> {
 }
 */
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -274,4 +277,4 @@ mod tests {
         println!("{:?}", node);
         println!("{:?}", node_empty);
     }
-}
+}*/

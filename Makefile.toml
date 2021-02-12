@@ -1,0 +1,17 @@
+[tasks.compile]
+description = "Build"
+workspace = false
+command = "cargo"
+args = ["build"]
+
+[tasks.buildpkg]
+description = "Build wasm package"
+workspace = false
+command = "wasm-pack"
+args = ["build", "--out-dir", "../pkg", "--out-name", "orgmd_parser", "./wasm/", "--scope", "okeysea", "--dev"]
+
+[tasks.buildpkg_release]
+description = "Release build wasm package"
+workspace = false
+command = "wasm-pack"
+args = ["build", "--out-dir", "../pkg", "--out-name", "orgmd_parser", "./wasm/", "--scope", "okeysea", "--release"]
