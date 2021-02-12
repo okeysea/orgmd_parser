@@ -5,6 +5,38 @@ use std::rc::Rc;
 
 type Link = Rc<RefCell<ASTNode>>;
 
+#[derive(Copy, Clone)]
+pub struct ASTPos {
+    line: u32,
+    ch: u32,
+    pos: u32,
+}
+
+impl ASTPos {
+    pub fn new(line: u32, ch: u32, pos: u32) -> ASTPos {
+        ASTPos{ line: line, ch: ch, pos: pos }
+    }
+
+    pub fn increase_pos_n(&mut self, n: u32) {
+        self.pos += n;
+    }
+    
+    pub fn increase_line_n(&mut self, n: u32) {
+        self.line += n;
+        self.increase_pos_n(n);
+    }
+
+    pub fn increase_ch_n(&mut self, n: u32){
+        self.ch += n;
+        self.increase_pos_n(n);
+    }
+}
+
+pub struct ASTRange {
+    begin: ASTPos,
+    end: ASTPos,
+}
+
 #[derive(Debug, PartialEq, Serialize)]
 pub struct ASTNode {
     #[serde(flatten)]
