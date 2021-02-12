@@ -1,9 +1,7 @@
 extern crate wasm_bindgen;
 
-pub mod module;
-
-use module::ast::*;
-use module::md_parser::md_parse;
+use parser::ast::*;
+use parser::md_parser::md_parse;
 
 use wasm_bindgen::prelude::*;
 

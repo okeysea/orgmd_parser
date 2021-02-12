@@ -1,5 +1,5 @@
 extern crate nom;
-use crate::module::ast::*;
+use crate::ast::*;
 
 use nom::{
     Err, IResult, InputIter, Slice, AsChar,

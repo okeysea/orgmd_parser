@@ -1,10 +1,10 @@
 #[macro_use]
 extern crate criterion;
 
-use orgmd_parser::module::ast::{
+use parser::ast::{
     ASTNode, ASTElm, 
 };
-use orgmd_parser::module::md_parser::md_parse;
+use parser::md_parser::md_parse;
 
 use criterion::Criterion;
 use criterion::black_box;
