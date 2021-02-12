@@ -28,6 +28,7 @@ RUN apt-get update -qq && apt-get install yarn
 # RUN rm -rf /var/cache/apk/*
 
 RUN cargo install wasm-pack
+RUN cargo install cargo-make
 
 # for debug
 # RUN apk add gdb
