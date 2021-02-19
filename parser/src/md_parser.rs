@@ -960,9 +960,10 @@ impl Parser {
         node.set_value("".to_string());
         node.set_raw_value(s.to_string());
 
-        match many0(with_tran!(self, self.parse_blocks()))(s) {
+        match with_tran!(self, many0(with_tran!(self, self.parse_blocks())))(s) {
             Ok((remain, result)) => {
                 node.append_node_from_vec(result);
+                node.set_range( self.pos_get_range() );
             }
             Err(_) => {}
         }
