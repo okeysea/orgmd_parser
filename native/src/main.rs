@@ -20,11 +20,9 @@ fn main() {
     */
     node = md_parse(
         "\
-# hello
+# headering
 
-
-this is paragraph
-*test*",
+paragraph",
         node,
     );
     println!("{:?}", node);
