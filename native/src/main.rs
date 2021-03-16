@@ -20,15 +20,9 @@ fn main() {
     */
     node = md_parse(
         "\
-# これは強調のテストです
-*fake
-*入れ子のテストです
-*入れ子2
-*一行で完結する行*
-入れ子2の終了*
-入れ子の終了*
-# ここで強調はおわっています
-",
+# headering
+
+paragraph",
         node,
     );
     println!("{:?}", node);

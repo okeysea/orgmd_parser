@@ -366,6 +366,7 @@ name = "parser"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "log",
  "nom",
  "serde",
  "serde_json",

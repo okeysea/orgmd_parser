@@ -1,9 +1,103 @@
 use serde::Serialize;
-use std::cell::RefCell;
+use std::cell::{RefCell};
 use std::cell::RefMut;
 use std::rc::Rc;
 
 type Link = Rc<RefCell<ASTNode>>;
+type Position = RefCell<u32>;
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct ASTPos {
+    line: Position,
+    ch: Position,
+    pos: Position,
+}
+
+impl ASTPos {
+    pub fn new(line: u32, ch: u32, pos: u32) -> ASTPos {
+        ASTPos{
+            line:   RefCell::new(line),
+            ch:     RefCell::new(ch),
+            pos:    RefCell::new(pos)
+        }
+    }
+
+    pub fn increase_pos_n(&self, n: u32) {
+        // NOTE: 実行時Borrowチェッカーに怒られるので、変数に一旦入れる
+        let a = self.pos();
+        self.set_pos( a + n );
+    }
+    
+    pub fn increase_line_n(&self, n: u32) {
+        let a = self.line();
+        self.set_line( a + n );
+        self.set_ch(1);
+        self.increase_pos_n(n);
+    }
+
+    pub fn increase_ch_n(&self, n: u32){
+        let a = self.ch();
+        self.set_ch( a + n );
+        self.increase_pos_n(n);
+    }
+
+    // pos_mut() のようなRust流のインターフェースにしたいが、無理っぽい？
+    pub fn set_pos(&self, n: u32){
+        *self.pos.borrow_mut() = n;
+    }
+
+    pub fn set_line(&self, n: u32){
+        *self.line.borrow_mut() = n;
+    }
+
+    pub fn set_ch(&self, n: u32){
+        *self.ch.borrow_mut() = n;
+    }
+
+    pub fn pos(&self) -> u32 {
+        *self.pos.borrow()
+    }
+
+    pub fn line(&self) -> u32 {
+        *self.line.borrow()
+    }
+
+    pub fn ch(&self) -> u32 {
+        *self.ch.borrow()
+    }
+
+}
+
+#[test]
+fn test_ASTPos_increase_positions() {
+
+    let pos = ASTPos::new(1,1,0);
+    assert_eq!( pos.pos(), 0 );
+    assert_eq!( pos.line(), 1 );
+    assert_eq!( pos.ch(), 1 );
+
+    pos.increase_pos_n(1);
+    pos.increase_line_n(1);
+    pos.increase_ch_n(1);
+
+    // Pos は 文字数なので、行を進めるとき(=\nを読んだ)とchを進めるとき(=一文字読んだ)に加算されるので3
+    assert_eq!( pos.pos(), 3 );
+    assert_eq!( pos.line(), 2 );
+    assert_eq!( pos.ch(), 2 );
+
+}
+
+#[derive(Debug, Default, PartialEq, Serialize)]
+pub struct ASTRange {
+    pub begin: ASTPos,
+    pub end: ASTPos,
+}
+
+impl ASTRange {
+    pub fn new(begin: ASTPos, end: ASTPos) -> Self {
+        ASTRange{ begin, end }
+    }
+}
 
 #[derive(Debug, PartialEq, Serialize)]
 pub struct ASTNode {
@@ -19,7 +113,49 @@ pub struct ASTElm {
     pub elm_meta: ASTMetaData,
     pub value: String,
     pub raw_value: String, // パース前のデータ
+    pub range: ASTRange,
 }
+
+impl ASTElm {
+
+    fn build(elm_type: ASTType, elm_meta: ASTMetaData, value: &str, raw_value: &str, range: ASTRange ) -> Self {
+        ASTElm { elm_type, elm_meta, value: value.to_string(), raw_value: raw_value.to_string(), range, }
+    }
+
+    pub fn new_document() -> Self {
+        ASTElm {
+            ..Default::default()
+        }
+    }
+
+    pub fn new_paragraph(value: &str, raw_value: &str, range: ASTRange ) -> Self {
+        ASTElm::build( ASTType::Paragraph, ASTMetaData::Nil, value, raw_value, range )
+    }
+
+    pub fn new_headers(level: ASTMetaData, value: &str, raw_value: &str, range: ASTRange ) -> Self {
+        ASTElm::build( ASTType::Headers, level, value, raw_value, range )
+    }
+
+    pub fn new_text(value: &str, range: ASTRange ) -> Self {
+        ASTElm::build( ASTType::Text, ASTMetaData::Nil, value, value, range )
+    }
+
+    pub fn new_emphasis( value: &str, raw_value: &str, range: ASTRange ) -> Self {
+        ASTElm::build( ASTType::Emphasis, ASTMetaData::Nil, value, raw_value, range )
+    }
+
+    pub fn new_softbreak( range: ASTRange ) -> Self {
+        ASTElm::build( ASTType::SoftBreak, ASTMetaData::Nil, "\n", "\n", range )
+    }
+
+    pub fn new_hardbreak( range: ASTRange ) -> Self {
+        ASTElm::build( ASTType::HardBreak, ASTMetaData::Nil, "\n", "\n", range )
+    }
+
+
+}
+
+
 
 #[derive(Debug, PartialEq, Serialize)]
 pub enum ASTType {
@@ -29,6 +165,7 @@ pub enum ASTType {
     Text,
     Emphasis,
     SoftBreak,
+    HardBreak,
 }
 
 impl Default for ASTType {
@@ -98,6 +235,10 @@ impl ASTNode {
         &self.data.raw_value
     }
 
+    pub fn range(&self) -> &ASTRange {
+        &self.data.range
+    }
+
     pub fn node_type_mut(&mut self) -> &mut ASTType {
         &mut self.data.elm_type
     }
@@ -114,6 +255,10 @@ impl ASTNode {
         &mut self.data.raw_value
     }
 
+    pub fn range_mut(&mut self) -> &mut ASTRange {
+        &mut self.data.range
+    }
+
     pub fn set_node_type(&mut self, v: ASTType) {
         *self.node_type_mut() = v;
     }
@@ -128,6 +273,10 @@ impl ASTNode {
 
     pub fn set_raw_value(&mut self, v: String) {
         *self.raw_value_mut() = v;
+    }
+
+    pub fn set_range(&mut self, v: ASTRange) {
+        *self.range_mut() = v;
     }
 
     //
@@ -167,6 +316,9 @@ impl ASTNode {
             ASTType::SoftBreak => {
                 //result = node.value().to_string();
                 result += "<softbreak />";
+            }
+            ASTType::HardBreak => {
+                result += "<hardbreak />";
             }
             _ => {
                 result = result + "<error>Undefined ASTNode Type</error>";
