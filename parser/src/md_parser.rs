@@ -661,6 +661,12 @@ impl Parser {
 /* ---------- strings ----------*/
 
 impl Parser {
+
+    fn parse_space_string(&self) -> impl Fn(&str) -> IResult<&str, String> + '_ {
+        move |s|{
+            map(self.parse_space(),|input_s: char| input_s.to_string() )(s)
+        }
+    }
     
     fn parse_line_break(&self) -> impl Fn(&str) -> IResult<&str, &str> + '_ {
         move |s| {
@@ -766,6 +772,19 @@ impl Parser {
     fn parse_inline(&self) -> impl Fn(&str) -> IResult<&str, ASTNode> + '_  {
         move |s| {
             match alt(with_tran!(self,
+                    self.parse_inline_syntax(),
+                    self.parse_sp_symbol()
+            ))(s)
+            {
+                Ok((remain, node)) => Ok((remain, node)),
+                Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
+            }
+        }
+    }
+
+    fn parse_inline_syntax(&self) -> impl Fn(&str) -> IResult<&str, ASTNode> + '_  {
+        move |s| {
+            match alt(with_tran!(self,
                     map(self.parse_nsp_string(), |input_s: String| {
                         let node = ASTNode::new( ASTElm::new_text( &input_s, self.pos_get_range() ));
                         return node;
@@ -782,16 +801,16 @@ impl Parser {
     /*
      * 強調
      * (入れ子を許容)
-     *
+     * NOTE: これはLISPですか？;D
      * TODO: アスタリスク前後の記号の取り扱いをcommonmarkに合わせる
      * */
     fn parse_emphasis(&self) -> impl Fn(&str) -> IResult<&str, ASTNode> + '_  {
         move |s| {
             match with_tran!(self,
                 delimited(
-                    tuple((self.single_char('*'), isolate!(self, peek(not(self.parse_soft_break()))))),
-                    many1(alt(with_tran!(self, self.parse_inline(), self.parse_soft_break_node()))),
-                    tuple((isolate!(self, peek(not(self.parse_soft_break()))), self.single_char('*'))),
+                    tuple((self.single_char('*'), isolate!(self, peek(not(alt((self.parse_soft_break(),self.parse_space_string()))))))),
+                    many1(alt(with_tran!(self, self.parse_inline_syntax(), self.parse_soft_break_node()))),
+                    tuple((isolate!(self, peek(not(alt((self.parse_soft_break(),self.parse_space_string()))))), self.single_char('*'))),
                 )
             )(s)
             {
@@ -814,6 +833,22 @@ impl Parser {
     fn parse_sp_asterisk(&self) -> impl Fn(&str) -> IResult<&str, ASTNode> + '_  {
         move |s| {
             match map(self.parse_asterisk_char(), |input_s: char| {
+                let node = ASTNode::new(ASTElm::new_text( &input_s.to_string(), self.pos_get_range() ));
+                return node;
+            })(s)
+            {
+                Ok((remain, node)) => Ok((remain, node)),
+                Err(_) => Err(Err::Error(ParseError::from_error_kind(s, ErrorKind::Char))),
+            }
+        }
+    }
+
+    /*
+     * 構文上意味がない漏れてきた記号のパース
+     */
+    fn parse_sp_symbol(&self) -> impl Fn(&str) -> IResult<&str, ASTNode> + '_ {
+        move |s| {
+            match map(self.parse_sp_char(), |input_s: char| {
                 let node = ASTNode::new(ASTElm::new_text( &input_s.to_string(), self.pos_get_range() ));
                 return node;
             })(s)
@@ -848,7 +883,7 @@ impl Parser {
             match r {
                 Ok((remain, (_, level, _, inline_node, _, _))) => {
                     let mut node = ASTNode::new( ASTElm::new_headers(
-                            ASTMetaData::H1,
+                            level,
                             "", s.slice(..s.len()-remain.len()),
                             self.pos_get_previous_line_range()
                     ));
