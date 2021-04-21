@@ -21,8 +21,12 @@ fn main() {
     node = md_parse(
         "\
 # headering
+#kigouwotukattemasu
+# headering*kigou
+# headering*emphasis* kigou*desu
+paragraph(kakko)
+",
 
-paragraph",
         node,
     );
     println!("{:?}", node);

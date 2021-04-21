@@ -132,8 +132,18 @@ impl ASTElm {
         ASTElm::build( ASTType::Paragraph, ASTMetaData::Nil, value, raw_value, range )
     }
 
-    pub fn new_headers(level: ASTMetaData, value: &str, raw_value: &str, range: ASTRange ) -> Self {
-        ASTElm::build( ASTType::Headers, level, value, raw_value, range )
+    pub fn new_headers(level: usize, value: &str, raw_value: &str, range: ASTRange ) -> Self {
+        let mut metalevel: ASTMetaData;
+        match level {
+            1 => metalevel = ASTMetaData::H1,
+            2 => metalevel = ASTMetaData::H2,
+            3 => metalevel = ASTMetaData::H3,
+            4 => metalevel = ASTMetaData::H4,
+            5 => metalevel = ASTMetaData::H5,
+            6 => metalevel = ASTMetaData::H6,
+            _ => metalevel = ASTMetaData::H1,
+        }
+        ASTElm::build( ASTType::Headers, metalevel, value, raw_value, range )
     }
 
     pub fn new_text(value: &str, range: ASTRange ) -> Self {

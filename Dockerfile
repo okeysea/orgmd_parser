@@ -10,6 +10,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 RUN apt-get update
+RUN apt-get install -y curl
 RUN apt-get install bash
 RUN apt-get install gosu 
 
@@ -38,4 +39,4 @@ COPY --chown=${LOCAL_UID}:${LOCAL_GID} . .
 
 RUN chown -R ${LOCAL_UID}:${LOCAL_GID} /usr/local/cargo
 
-# RUN cargo install --path .
+RUN cargo build
